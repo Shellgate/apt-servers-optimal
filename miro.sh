@@ -2,6 +2,16 @@
 
 set -e
 
+# Color setup
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[1;36m'
+BLUE='\033[1;34m'
+MAGENTA='\033[1;35m'
+RESET='\033[0m'
+BOLD='\033[1m'
+
 APT_ROOT="/etc/apt"
 SOURCES_FILE="$APT_ROOT/sources.list"
 BACKUP_DIR_PREFIX="${APT_ROOT}/sources-cleanup-backup-"
@@ -34,6 +44,19 @@ MIRRORS=(
   "http://security.ubuntu.com/ubuntu/"
 )
 
+logo() {
+  echo -e "${BOLD}${MAGENTA}"
+  cat <<'EOF'
+ __  __ _       _       
+|  \/  (_)_ __ (_) ___  
+| |\/| | | '_ \| |/ _ \ 
+| |  | | | | | | | (_) |
+|_|  |_|_|_| |_|_|\___/ 
+EOF
+  echo -e "${CYAN}${BOLD}APT Servers Optimal by Shellgate${RESET}"
+  echo ""
+}
+
 detect_codename() {
   if command -v lsb_release &> /dev/null; then
     lsb_release -cs
@@ -47,17 +70,18 @@ detect_codename() {
 }
 
 optimize_sources() {
+  logo
   UBUNTU_CODENAME=$(detect_codename)
   if [ "$UBUNTU_CODENAME" = "unknown" ] || [ -z "$UBUNTU_CODENAME" ]; then
-    echo "❌ Could not detect Ubuntu codename!"
+    echo -e "${RED}❌ Could not detect Ubuntu codename!${RESET}"
     exit 1
   fi
 
   BACKUP_DATE="$(date -u +%Y%m%d-%H%M%S)"
   BACKUP_DIR="${APT_ROOT}/sources-cleanup-backup-$BACKUP_DATE"
 
-  echo "🔎 Detected Ubuntu codename: $UBUNTU_CODENAME"
-  echo "🔍 Backing up all sources and key files to $BACKUP_DIR ..."
+  echo -e "${YELLOW}🔎 Detected Ubuntu codename: ${BOLD}${UBUNTU_CODENAME}${RESET}"
+  echo -e "${CYAN}🔍 Backing up all sources and key files to $BACKUP_DIR ...${RESET}"
   sudo mkdir -p "$BACKUP_DIR"
   sudo cp -a $APT_ROOT/sources.list* "$BACKUP_DIR/" 2>/dev/null || true
   sudo cp -a $APT_ROOT/sources.list.d "$BACKUP_DIR/" 2>/dev/null || true
@@ -67,43 +91,43 @@ optimize_sources() {
   # Remove ubuntu.sources if exists
   UBUNTU_SOURCES="$APT_ROOT/sources.list.d/ubuntu.sources"
   if [ -f "$UBUNTU_SOURCES" ]; then
-    echo "⛔️ Removing $UBUNTU_SOURCES"
+    echo -e "${RED}⛔️ Removing $UBUNTU_SOURCES${RESET}"
     sudo rm -f "$UBUNTU_SOURCES"
   fi
 
   sudo cp "$SOURCES_FILE" "$SOURCES_FILE.bak-$BACKUP_DATE"
 
   echo ""
-  echo "🚀 Quickly testing mirrors: ping, HTTP, and minimal speed test..."
+  echo -e "${BLUE}🚀 Testing all mirrors: ping, HTTP, speed...${RESET}"
   mkdir -p "$TMPDIR"
   > "$TMPDIR/speed.txt"
 
   for MIRROR in "${MIRRORS[@]}"; do
     host=$(echo "$MIRROR" | awk -F/ '{print $3}')
-    echo -n "⏳ Testing $host ... "
+    echo -ne "${YELLOW}⏳ Testing $host ... ${RESET}"
     if ping -c 1 -W 1 "$host" &>/dev/null; then
-      echo -n "Ping OK, HTTP ... "
+      echo -ne "${GREEN}Ping OK${RESET}, HTTP ... "
       TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
       if curl -s --head --max-time 3 "$TEST_URL" | grep -q "200 OK"; then
-        echo -n "200 OK, speed ... "
+        echo -ne "${GREEN}200 OK${RESET}, speed ... "
         SPEED=$(curl -s -L --max-time 3 --output /dev/null --write-out '%{speed_download}' "$TEST_URL")
         if [[ "$SPEED" =~ ^[0-9]+$ || "$SPEED" =~ ^[0-9]+\.[0-9]+$ ]]; then
           SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
-          echo "Speed: $SPEEDKB KB/s"
+          echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
           echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
         else
-          echo "Speed Test Failed"
+          echo -e "${RED}Speed Test Failed${RESET}"
         fi
       else
-        echo "❌ No HTTP 200"
+        echo -e "${RED}❌ No HTTP 200${RESET}"
       fi
     else
-      echo "❌ No ping"
+      echo -e "${RED}❌ No ping${RESET}"
     fi
   done
 
   echo ""
-  echo "🏁 Sorting results, picking top $TOP_N fastest mirrors..."
+  echo -e "${MAGENTA}🏁 Sorting results, picking top $TOP_N fastest mirrors...${RESET}"
 
   sort -rn "$TMPDIR/speed.txt" | awk '!seen[$2]++' | head -n $TOP_N > "$TMPDIR/top.txt"
 
@@ -112,14 +136,14 @@ optimize_sources() {
   while read -r line; do
     MIRROR=$(echo "$line" | cut -f2)
     SPEED=$(echo "$line" | cut -f1)
-    echo "✅ Adding $MIRROR (Speed: $(awk "BEGIN {printf \"%.2f\", $SPEED/1024}") KB/s)"
+    echo -e "${GREEN}✅ Adding $MIRROR (Speed: $(awk "BEGIN {printf \"%.2f\", $SPEED/1024}") KB/s)${RESET}"
     for suite in "" "-updates" "-backports" "-security"; do
       echo "deb ${MIRROR} ${UBUNTU_CODENAME}${suite} main restricted universe multiverse" | sudo tee -a "$SOURCES_FILE" > /dev/null
     done
   done < "$TMPDIR/top.txt"
 
   # Update apt keys (just update, do NOT delete any keys)
-  echo "🔑 Refreshing apt keys..."
+  echo -e "${CYAN}🔑 Refreshing apt keys...${RESET}"
   if command -v apt-key &>/dev/null; then
     sudo apt-key update || true
     sudo apt-key net-update || true
@@ -134,56 +158,59 @@ optimize_sources() {
   fi
 
   echo ""
-  echo "✅ sources.list rebuilt with top $TOP_N fastest mirrors for $UBUNTU_CODENAME, apt keys updated/refreshed."
-  echo "⚠️  Backups saved at $BACKUP_DIR and /etc/apt/sources.list.bak-$BACKUP_DATE"
+  echo -e "${GREEN}${BOLD}✅ sources.list rebuilt with top $TOP_N fastest mirrors for $UBUNTU_CODENAME, apt keys updated/refreshed.${RESET}"
+  echo -e "${YELLOW}⚠️  Backups saved at $BACKUP_DIR and /etc/apt/sources.list.bak-$BACKUP_DATE${RESET}"
   echo ""
-  echo "📦 You can now run: sudo apt update"
+  echo -e "${BLUE}📦 You can now run: sudo apt update${RESET}"
   echo ""
-  echo "Mirrors sorted by speed (KB/s):"
-  awk '{printf "  - %s (%.2f KB/s)\n", $2, $1/1024}' "$TMPDIR/speed.txt" | head -n $TOP_N
+  echo -e "${MAGENTA}Mirrors sorted by speed (KB/s):${RESET}"
+  awk '{printf "  - %s ('"${CYAN}"'%.2f KB/s'"${RESET}"')\n", $2, $1/1024}' "$TMPDIR/speed.txt" | head -n $TOP_N
 
   rm -rf "$TMPDIR"
 }
 
 restore_backup() {
+  logo
   LAST_BACKUP=$(ls -dt ${BACKUP_DIR_PREFIX}* 2>/dev/null | head -n1)
   if [ -z "$LAST_BACKUP" ]; then
-    echo "❌ No backup found!"
+    echo -e "${RED}❌ No backup found!${RESET}"
     exit 1
   fi
-  echo "♻️ Restoring from backup: $LAST_BACKUP"
+  echo -e "${CYAN}♻️ Restoring from backup: ${YELLOW}$LAST_BACKUP${RESET}"
   sudo cp -a "$LAST_BACKUP/sources.list"* "$APT_ROOT/" 2>/dev/null || true
   sudo cp -a "$LAST_BACKUP/sources.list.d" "$APT_ROOT/" 2>/dev/null || true
   sudo cp -a "$LAST_BACKUP/trusted.gpg"* "$APT_ROOT/" 2>/dev/null || true
   sudo cp -a "$LAST_BACKUP/trusted.gpg.d" "$APT_ROOT/" 2>/dev/null || true
-  echo "✅ Restore complete! You can now run: sudo apt update"
+  echo -e "${GREEN}✅ Restore complete! You can now run: sudo apt update${RESET}"
 }
 
 show_backups() {
-  echo "📂 Available backups:"
+  logo
+  echo -e "${CYAN}📂 Available backups:${RESET}"
   ls -dt ${BACKUP_DIR_PREFIX}* 2>/dev/null | while read -r dir; do
-    echo "  - $dir"
+    echo -e "${YELLOW}  - $dir${RESET}"
   done
 }
 
 main_menu() {
   while true; do
-    echo "============== MIRO MENU =============="
-    echo "1) Optimize Ubuntu mirrors (recommended)"
-    echo "2) Restore last backup"
-    echo "3) Show backup info"
-    echo "q) Quit"
-    echo "======================================="
-    read -p "Select an option [1/2/3/q]: " choice
+    clear
+    logo
+    echo -e "${BOLD}${BLUE}============== MIRO MENU ==============${RESET}"
+    echo -e "${CYAN}1)${RESET} ${GREEN}Optimize Ubuntu mirrors (recommended)${RESET}"
+    echo -e "${CYAN}2)${RESET} ${YELLOW}Restore last backup${RESET}"
+    echo -e "${CYAN}3)${RESET} ${MAGENTA}Show backup info${RESET}"
+    echo -e "${CYAN}4)${RESET} ${RED}Exit${RESET}"
+    echo -e "${BOLD}${BLUE}=======================================${RESET}"
+    read -p "$(echo -e "${BOLD}Select an option [1/2/3/4]: ${RESET}")" choice
 
     case "$choice" in
-      1) optimize_sources ;;
-      2) restore_backup ;;
-      3) show_backups ;;
-      q|Q) echo "Goodbye!"; exit 0 ;;
-      *) echo "Invalid option! Try again." ;;
+      1) optimize_sources; read -p "$(echo -e "${YELLOW}Press enter to return to menu...${RESET}")" ;;
+      2) restore_backup;  read -p "$(echo -e "${YELLOW}Press enter to return to menu...${RESET}")" ;;
+      3) show_backups;   read -p "$(echo -e "${YELLOW}Press enter to return to menu...${RESET}")" ;;
+      4) echo -e "${BOLD}${GREEN}Goodbye!${RESET}"; exit 0 ;;
+      *) echo -e "${RED}Invalid option! Try again.${RESET}"; sleep 1 ;;
     esac
-    echo
   done
 }
 
@@ -193,8 +220,8 @@ if [ "$#" -gt 0 ]; then
     1) optimize_sources ;;
     2) restore_backup ;;
     3) show_backups ;;
-    q|Q) echo "Goodbye!"; exit 0 ;;
-    *) echo "Usage: $0 [1|2|3|q]"; exit 1 ;;
+    4) echo -e "${BOLD}${GREEN}Goodbye!${RESET}"; exit 0 ;;
+    *) echo -e "${RED}Usage: $0 [1|2|3|4]${RESET}"; exit 1 ;;
   esac
 else
   main_menu
