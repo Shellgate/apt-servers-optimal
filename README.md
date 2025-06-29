@@ -43,6 +43,7 @@ It tests all known (Iranian & worldwide) Ubuntu mirrors for speed and availabili
 wget https://raw.githubusercontent.com/Shellgate/apt-servers-optimal/main/miro.sh -O miro.sh
 chmod +x miro.sh
 sudo mv miro.sh /usr/local/bin/miro
+sudo miro
 ```
 
 ---
@@ -161,6 +162,7 @@ Always have the fastest, healthiest Ubuntu mirrors — painlessly! 🚀
 wget https://raw.githubusercontent.com/Shellgate/apt-servers-optimal/main/miro.sh -O miro.sh
 chmod +x miro.sh
 sudo mv miro.sh /usr/local/bin/miro
+sudo miro
 ```
 
 ---
