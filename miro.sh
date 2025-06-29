@@ -16,7 +16,7 @@ APT_ROOT="/etc/apt"
 SOURCES_FILE="$APT_ROOT/sources.list"
 BACKUP_DIR_PREFIX="${APT_ROOT}/sources-cleanup-backup-"
 TMPDIR="/tmp/miro_mirrors_$$"
-TOP_N=3 # Number of fastest mirrors to use
+TOP_N=3
 TEST_PATH_TEMPLATE="dists/%s/Release"
 
 MIRRORS=(
@@ -88,7 +88,6 @@ optimize_sources() {
   sudo cp -a $APT_ROOT/trusted.gpg* "$BACKUP_DIR/" 2>/dev/null || true
   sudo cp -a $APT_ROOT/trusted.gpg.d "$BACKUP_DIR/" 2>/dev/null || true
 
-  # Remove ubuntu.sources if exists
   UBUNTU_SOURCES="$APT_ROOT/sources.list.d/ubuntu.sources"
   if [ -f "$UBUNTU_SOURCES" ]; then
     echo -e "${RED}⛔️ Removing $UBUNTU_SOURCES${RESET}"
@@ -142,14 +141,12 @@ optimize_sources() {
     done
   done < "$TMPDIR/top.txt"
 
-  # Update apt keys (just update, do NOT delete any keys)
   echo -e "${CYAN}🔑 Refreshing apt keys...${RESET}"
   if command -v apt-key &>/dev/null; then
     sudo apt-key update || true
     sudo apt-key net-update || true
   fi
 
-  # Refresh trusted.gpg.d (not removal, just reload)
   if [ -d /etc/apt/trusted.gpg.d ]; then
     for keyring in /etc/apt/trusted.gpg.d/*.gpg; do
       [ -f "$keyring" ] || continue
@@ -214,7 +211,6 @@ main_menu() {
   done
 }
 
-# If script is called with arguments
 if [ "$#" -gt 0 ]; then
   case "$1" in
     1) optimize_sources ;;
