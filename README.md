@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Logo](https://raw.githubusercontent.com/Shellgate/apt-servers-optimal/main/logo-miromagic.png)
+![Logo](![Image](https://github.com/user-attachments/assets/098610cf-0a2b-4b0e-8283-974a858406a0))
 
 **Advanced Ubuntu APT Mirror Optimizer**  
 ابزار حرفه‌ای و هوشمند بهینه‌سازی مخازن اوبونتو  
