@@ -24,7 +24,7 @@
 
 1. **Save and install the script:**
    ```bash
-   wget https://raw.githubusercontent.com/Shellgate/main/miro.sh -O miro.sh
+   wget https://raw.githubusercontent.com/Shellgate/apt-servers-optimal/main/miro.sh -O miro.sh
    chmod +x miro.sh
    sudo mv miro.sh /usr/local/bin/miro
    ```
@@ -125,7 +125,7 @@ Always have the fastest, healthiest Ubuntu mirrors, painlessly! 🚀
 
 1. **دریافت و نصب اسکریپت:**
    ```bash
-   wget https://raw.githubusercontent.com/Shellgate/main/miro.sh -O miro.sh
+   wget https://raw.githubusercontent.com/Shellgate/apt-servers-optimal/main/miro.sh -O miro.sh
    chmod +x miro.sh
    sudo mv miro.sh /usr/local/bin/miro
    ```
