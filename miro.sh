@@ -2,7 +2,7 @@
 
 set -e
 
-# Colors
+# Color setup
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -17,7 +17,6 @@ SOURCES_FILE="$APT_ROOT/sources.list"
 BACKUP_DIR_PREFIX="${APT_ROOT}/sources-cleanup-backup-"
 TMPDIR="/tmp/miro_mirrors_$$"
 TOP_N=3
-MAX_PING=20
 TEST_PATH_TEMPLATE="dists/%s/Release"
 
 MIRRORS=(
@@ -41,14 +40,14 @@ MIRRORS=(
   "http://mirror.ut.ac.ir/ubuntu/"
   "http://repo.iut.ac.ir/repo/ubuntu/"
   "http://mirror.asiatech.ir/ubuntu/"
-  "https://mirror.mci.ir/ubuntu/"
-  "https://mirror.mobinnet.ir/ubuntu/"
-  "https://mirror.rayansaba.com/ubuntu/"
-  "https://mirror.bananhost.com/ubuntu/"
-  "https://mirror.takserver.ir/ubuntu/"
-  "https://mirror.telewebion.com/ubuntu/"
-  "https://mirror.hostdl.com/ubuntu/"
-  "https://ubuntu.iranhost.com/ubuntu/"
+  "https://mirror.mci.ir/ubuntu/"                  
+  "https://mirror.mobinnet.ir/ubuntu/"            
+  "https://mirror.rayansaba.com/ubuntu/"         
+  "https://mirror.bananhost.com/ubuntu/"          
+  "https://mirror.takserver.ir/ubuntu/"         
+  "https://mirror.telewebion.com/ubuntu/"          
+  "https://mirror.hostdl.com/ubuntu/"              
+  "https://ubuntu.iranhost.com/ubuntu/"       
   "http://archive.ubuntu.com/ubuntu/"
   "http://security.ubuntu.com/ubuntu/"
   "https://mirrors.edge.kernel.org/ubuntu/"
@@ -90,7 +89,8 @@ logo() {
 | |  | | | | | | | (_) |
 |_|  |_|_|_| |_|_|\___/ 
 EOF
-  echo -e "${CYAN}${BOLD}APT Servers Optimal by Shellgate${RESET}\n"
+  echo -e "${CYAN}${BOLD}APT Servers Optimal by Shellgate${RESET}"
+  echo ""
 }
 
 detect_codename() {
@@ -116,8 +116,8 @@ optimize_sources() {
   BACKUP_DATE="$(date -u +%Y%m%d-%H%M%S)"
   BACKUP_DIR="${APT_ROOT}/sources-cleanup-backup-$BACKUP_DATE"
 
-  echo -e "${YELLOW}Detected Ubuntu codename: ${BOLD}${UBUNTU_CODENAME}${RESET}"
-  echo -e "${CYAN}Backing up sources and keys to $BACKUP_DIR ...${RESET}"
+  echo -e "${YELLOW}🔎 Detected Ubuntu codename: ${BOLD}${UBUNTU_CODENAME}${RESET}"
+  echo -e "${CYAN}🔍 Backing up all sources and key files to $BACKUP_DIR ...${RESET}"
   sudo mkdir -p "$BACKUP_DIR"
   sudo cp -a $APT_ROOT/sources.list* "$BACKUP_DIR/" 2>/dev/null || true
   sudo cp -a $APT_ROOT/sources.list.d "$BACKUP_DIR/" 2>/dev/null || true
@@ -126,53 +126,43 @@ optimize_sources() {
 
   UBUNTU_SOURCES="$APT_ROOT/sources.list.d/ubuntu.sources"
   if [ -f "$UBUNTU_SOURCES" ]; then
-    echo -e "${RED}Removing $UBUNTU_SOURCES${RESET}"
+    echo -e "${RED}⛔️ Removing $UBUNTU_SOURCES${RESET}"
     sudo rm -f "$UBUNTU_SOURCES"
   fi
 
   sudo cp "$SOURCES_FILE" "$SOURCES_FILE.bak-$BACKUP_DATE"
 
-  echo -e "${BLUE}Step 1: Pinging all mirrors...${RESET}"
-
+  echo ""
+  echo -e "${BLUE}🚀 Testing all mirrors: ping, HTTP, speed...${RESET}"
   mkdir -p "$TMPDIR"
-  > "$TMPDIR/ping.txt"
   > "$TMPDIR/speed.txt"
 
   for MIRROR in "${MIRRORS[@]}"; do
     host=$(echo "$MIRROR" | awk -F/ '{print $3}')
-    [ -z "$host" ] && continue
-    PING_MS=$(ping -c 1 -W 1 "$host" 2>/dev/null | awk -F'time=' '/time=/{print $2}' | awk '{print int($1)}')
-    if [ -n "$PING_MS" ] && [ "$PING_MS" -le "$MAX_PING" ]; then
-      echo -e "${GREEN}$host OK (${PING_MS} ms)${RESET}"
-      echo -e "${PING_MS}\t${MIRROR}" >> "$TMPDIR/ping.txt"
+    echo -ne "${YELLOW}⏳ Testing $host ... ${RESET}"
+    if ping -c 1 -W 1 "$host" &>/dev/null; then
+      echo -ne "${GREEN}Ping OK${RESET}, HTTP ... "
+      TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
+      if curl -s --head --max-time 3 "$TEST_URL" | grep -q "200 OK"; then
+        echo -ne "${GREEN}200 OK${RESET}, speed ... "
+        SPEED=$(curl -s -L --max-time 3 --output /dev/null --write-out '%{speed_download}' "$TEST_URL")
+        if [[ "$SPEED" =~ ^[0-9]+$ || "$SPEED" =~ ^[0-9]+\.[0-9]+$ ]]; then
+          SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
+          echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
+          echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
+        else
+          echo -e "${RED}Speed Test Failed${RESET}"
+        fi
+      else
+        echo -e "${RED}❌ No HTTP 200${RESET}"
+      fi
     else
-      echo -e "${YELLOW}$host skipped${RESET}"
+      echo -e "${RED}❌ No ping${RESET}"
     fi
   done
 
   echo ""
-  echo -e "${MAGENTA}Selecting mirrors with lowest ping...${RESET}"
-  sort -n "$TMPDIR/ping.txt" | awk '!seen[$2]++' | head -n $((TOP_N*3)) > "$TMPDIR/ping_selected.txt"
-
-  echo ""
-  echo -e "${BLUE}Step 2: Measuring download speed for selected mirrors...${RESET}"
-
-  while read -r line; do
-    MIRROR=$(echo "$line" | cut -f2)
-    TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
-    echo -ne "${YELLOW}Testing $MIRROR ... ${RESET}"
-    SPEED=$(curl -m 8 --range 0-262143 -L --output /dev/null --write-out '%{speed_download}' --silent --fail "$TEST_URL" 2>/dev/null)
-    if [[ "$SPEED" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-      SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
-      echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
-      echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
-    else
-      echo -e "${RED}Failed${RESET}"
-    fi
-  done < "$TMPDIR/ping_selected.txt"
-
-  echo ""
-  echo -e "${MAGENTA}Sorting results, selecting top $TOP_N fastest mirrors...${RESET}"
+  echo -e "${MAGENTA}🏁 Sorting results, picking top $TOP_N fastest mirrors...${RESET}"
 
   sort -rn "$TMPDIR/speed.txt" | awk '!seen[$2]++' | head -n $TOP_N > "$TMPDIR/top.txt"
 
@@ -181,13 +171,13 @@ optimize_sources() {
   while read -r line; do
     MIRROR=$(echo "$line" | cut -f2)
     SPEED=$(echo "$line" | cut -f1)
-    echo -e "${GREEN}Adding $MIRROR (Speed: $(awk "BEGIN {printf \"%.2f\", $SPEED/1024}") KB/s)${RESET}"
+    echo -e "${GREEN}✅ Adding $MIRROR (Speed: $(awk "BEGIN {printf \"%.2f\", $SPEED/1024}") KB/s)${RESET}"
     for suite in "" "-updates" "-backports" "-security"; do
       echo "deb ${MIRROR} ${UBUNTU_CODENAME}${suite} main restricted universe multiverse" | sudo tee -a "$SOURCES_FILE" > /dev/null
     done
   done < "$TMPDIR/top.txt"
 
-  echo -e "${CYAN}Refreshing apt keys...${RESET}"
+  echo -e "${CYAN}🔑 Refreshing apt keys...${RESET}"
   if command -v apt-key &>/dev/null; then
     sudo apt-key update || true
     sudo apt-key net-update || true
@@ -201,12 +191,12 @@ optimize_sources() {
   fi
 
   echo ""
-  echo -e "${GREEN}${BOLD}sources.list rebuilt with top $TOP_N fastest mirrors for $UBUNTU_CODENAME.${RESET}"
-  echo -e "${YELLOW}Backups saved at $BACKUP_DIR and /etc/apt/sources.list.bak-$BACKUP_DATE${RESET}"
+  echo -e "${GREEN}${BOLD}✅ sources.list rebuilt with top $TOP_N fastest mirrors for $UBUNTU_CODENAME, apt keys updated/refreshed.${RESET}"
+  echo -e "${YELLOW}⚠️  Backups saved at $BACKUP_DIR and /etc/apt/sources.list.bak-$BACKUP_DATE${RESET}"
   echo ""
-  echo -e "${BLUE}You can now run: sudo apt update${RESET}"
+  echo -e "${BLUE}📦 You can now run: sudo apt update${RESET}"
   echo ""
-  echo -e "${MAGENTA}Top mirrors by speed (KB/s):${RESET}"
+  echo -e "${MAGENTA}Mirrors sorted by speed (KB/s):${RESET}"
   awk '{printf "  - %s ('"${CYAN}"'%.2f KB/s'"${RESET}"')\n", $2, $1/1024}' "$TMPDIR/speed.txt" | head -n $TOP_N
 
   rm -rf "$TMPDIR"
@@ -216,20 +206,20 @@ restore_backup() {
   logo
   LAST_BACKUP=$(ls -dt ${BACKUP_DIR_PREFIX}* 2>/dev/null | head -n1)
   if [ -z "$LAST_BACKUP" ]; then
-    echo -e "${RED}No backup found!${RESET}"
+    echo -e "${RED}❌ No backup found!${RESET}"
     exit 1
   fi
-  echo -e "${CYAN}Restoring from backup: ${YELLOW}$LAST_BACKUP${RESET}"
+  echo -e "${CYAN}♻️ Restoring from backup: ${YELLOW}$LAST_BACKUP${RESET}"
   sudo cp -a "$LAST_BACKUP/sources.list"* "$APT_ROOT/" 2>/dev/null || true
   sudo cp -a "$LAST_BACKUP/sources.list.d" "$APT_ROOT/" 2>/dev/null || true
   sudo cp -a "$LAST_BACKUP/trusted.gpg"* "$APT_ROOT/" 2>/dev/null || true
   sudo cp -a "$LAST_BACKUP/trusted.gpg.d" "$APT_ROOT/" 2>/dev/null || true
-  echo -e "${GREEN}Restore complete! You can now run: sudo apt update${RESET}"
+  echo -e "${GREEN}✅ Restore complete! You can now run: sudo apt update${RESET}"
 }
 
 show_backups() {
   logo
-  echo -e "${CYAN}Available backups:${RESET}"
+  echo -e "${CYAN}📂 Available backups:${RESET}"
   ls -dt ${BACKUP_DIR_PREFIX}* 2>/dev/null | while read -r dir; do
     echo -e "${YELLOW}  - $dir${RESET}"
   done
