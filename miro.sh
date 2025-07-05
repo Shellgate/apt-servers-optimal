@@ -2,6 +2,7 @@
 
 set -e
 
+# Color setup
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -15,10 +16,7 @@ APT_ROOT="/etc/apt"
 SOURCES_FILE="$APT_ROOT/sources.list"
 BACKUP_DIR_PREFIX="${APT_ROOT}/sources-cleanup-backup-"
 TMPDIR="/tmp/miro_mirrors_$$"
-TOP_N=4
-MAX_PING=20
-EXTRA_PING_TRY=1000  # fallback: if not enough low ping found, expand
-
+TOP_N=3
 TEST_PATH_TEMPLATE="dists/%s/Release"
 
 MIRRORS=(
@@ -42,14 +40,14 @@ MIRRORS=(
   "http://mirror.ut.ac.ir/ubuntu/"
   "http://repo.iut.ac.ir/repo/ubuntu/"
   "http://mirror.asiatech.ir/ubuntu/"
-  "https://mirror.mci.ir/ubuntu/"
-  "https://mirror.mobinnet.ir/ubuntu/"
-  "https://mirror.rayansaba.com/ubuntu/"
-  "https://mirror.bananhost.com/ubuntu/"
-  "https://mirror.takserver.ir/ubuntu/"
-  "https://mirror.telewebion.com/ubuntu/"
-  "https://mirror.hostdl.com/ubuntu/"
-  "https://ubuntu.iranhost.com/ubuntu/"
+  "https://mirror.mci.ir/ubuntu/"                  
+  "https://mirror.mobinnet.ir/ubuntu/"            
+  "https://mirror.rayansaba.com/ubuntu/"         
+  "https://mirror.bananhost.com/ubuntu/"          
+  "https://mirror.takserver.ir/ubuntu/"         
+  "https://mirror.telewebion.com/ubuntu/"          
+  "https://mirror.hostdl.com/ubuntu/"              
+  "https://ubuntu.iranhost.com/ubuntu/"       
   "http://archive.ubuntu.com/ubuntu/"
   "http://security.ubuntu.com/ubuntu/"
   "https://mirrors.edge.kernel.org/ubuntu/"
@@ -107,20 +105,6 @@ detect_codename() {
   fi
 }
 
-get_ping_ms() {
-  host="$1"
-  # Try to get ms from en and fa and other formats
-  local line
-  line=$(ping -c 1 -W 1 "$host" 2>/dev/null | grep -E 'time=|زمان=' | head -n1)
-  if [[ $line =~ time=([0-9]+(\.[0-9]+)?) ]]; then
-    echo "${BASH_REMATCH[1]%.*}"
-  elif [[ $line =~ زمان=([0-9]+(\.[0-9]+)?) ]]; then
-    echo "${BASH_REMATCH[1]%.*}"
-  else
-    echo ""
-  fi
-}
-
 optimize_sources() {
   logo
   UBUNTU_CODENAME=$(detect_codename)
@@ -148,65 +132,39 @@ optimize_sources() {
 
   sudo cp "$SOURCES_FILE" "$SOURCES_FILE.bak-$BACKUP_DATE"
 
-  echo -e "${BLUE}Step 1: Pinging all mirrors...${RESET}"
+  echo ""
+  echo -e "${BLUE}🚀 Testing all mirrors: ping, HTTP, speed...${RESET}"
   mkdir -p "$TMPDIR"
-  > "$TMPDIR/ping.txt"
   > "$TMPDIR/speed.txt"
 
   for MIRROR in "${MIRRORS[@]}"; do
     host=$(echo "$MIRROR" | awk -F/ '{print $3}')
-    [ -z "$host" ] && continue
-    PING_MS=$(get_ping_ms "$host")
-    if [ -n "$PING_MS" ]; then
-      echo -e "${GREEN}$host OK (${PING_MS} ms)${RESET}"
-      echo -e "${PING_MS}\t${MIRROR}" >> "$TMPDIR/ping.txt"
+    echo -ne "${YELLOW}⏳ Testing $host ... ${RESET}"
+    if ping -c 1 -W 1 "$host" &>/dev/null; then
+      echo -ne "${GREEN}Ping OK${RESET}, HTTP ... "
+      TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
+      if curl -s --head --max-time 3 "$TEST_URL" | grep -q "200 OK"; then
+        echo -ne "${GREEN}200 OK${RESET}, speed ... "
+        SPEED=$(curl -s -L --max-time 3 --output /dev/null --write-out '%{speed_download}' "$TEST_URL")
+        if [[ "$SPEED" =~ ^[0-9]+$ || "$SPEED" =~ ^[0-9]+\.[0-9]+$ ]]; then
+          SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
+          echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
+          echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
+        else
+          echo -e "${RED}Speed Test Failed${RESET}"
+        fi
+      else
+        echo -e "${RED}❌ No HTTP 200${RESET}"
+      fi
     else
-      echo -e "${YELLOW}$host skipped${RESET}"
+      echo -e "${RED}❌ No ping${RESET}"
     fi
   done
-
-  # Select with MAX_PING, else pick always best ones if not enough found
-  cnt=$(awk -v m="$MAX_PING" '$1 <= m' "$TMPDIR/ping.txt" | wc -l)
-  if [ "$cnt" -lt "$TOP_N" ]; then
-    echo -e "${YELLOW}⚠️ Not enough mirrors under ${MAX_PING}ms, using best available mirrors.${RESET}"
-    sort -n "$TMPDIR/ping.txt" | awk '!seen[$2]++' | head -n $((TOP_N*3)) > "$TMPDIR/ping_selected.txt"
-  else
-    awk -v m="$MAX_PING" '$1 <= m' "$TMPDIR/ping.txt" | sort -n | awk '!seen[$2]++' | head -n $((TOP_N*3)) > "$TMPDIR/ping_selected.txt"
-  fi
-
-  if [ ! -s "$TMPDIR/ping_selected.txt" ]; then
-    echo -e "${RED}❌ No hosts respond to ping. Aborting.${RESET}"
-    rm -rf "$TMPDIR"
-    exit 1
-  fi
-
-  echo ""
-  echo -e "${BLUE}Step 2: Measuring download speed for selected mirrors...${RESET}"
-
-  while read -r line; do
-    MIRROR=$(echo "$line" | cut -f2)
-    TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
-    echo -ne "${YELLOW}Testing $MIRROR ... ${RESET}"
-    SPEED=$(curl -m 8 --range 0-262143 -L --output /dev/null --write-out '%{speed_download}' --silent --fail "$TEST_URL" 2>/dev/null)
-    if [[ "$SPEED" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-      SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
-      echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
-      echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
-    else
-      echo -e "${RED}Failed${RESET}"
-    fi
-  done < "$TMPDIR/ping_selected.txt"
 
   echo ""
   echo -e "${MAGENTA}🏁 Sorting results, picking top $TOP_N fastest mirrors...${RESET}"
 
   sort -rn "$TMPDIR/speed.txt" | awk '!seen[$2]++' | head -n $TOP_N > "$TMPDIR/top.txt"
-
-  if [ ! -s "$TMPDIR/top.txt" ]; then
-    echo -e "${RED}❌ No mirrors passed speed test. Aborting.${RESET}"
-    rm -rf "$TMPDIR"
-    exit 1
-  fi
 
   echo "# Cleaned and rebuilt on $(date -u) by miro.sh" | sudo tee "$SOURCES_FILE" > /dev/null
 
