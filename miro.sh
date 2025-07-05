@@ -133,31 +133,20 @@ optimize_sources() {
   sudo cp "$SOURCES_FILE" "$SOURCES_FILE.bak-$BACKUP_DATE"
 
   echo ""
-  echo -e "${BLUE}🚀 Testing all mirrors: ping, HTTP, speed...${RESET}"
+  echo -e "${BLUE}🚀 Testing all mirrors: download speed only...${RESET}"
   mkdir -p "$TMPDIR"
   > "$TMPDIR/speed.txt"
 
   for MIRROR in "${MIRRORS[@]}"; do
-    host=$(echo "$MIRROR" | awk -F/ '{print $3}')
-    echo -ne "${YELLOW}⏳ Testing $host ... ${RESET}"
-    if ping -c 1 -W 1 "$host" &>/dev/null; then
-      echo -ne "${GREEN}Ping OK${RESET}, HTTP ... "
-      TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
-      if curl -s --head --max-time 3 "$TEST_URL" | grep -q "200 OK"; then
-        echo -ne "${GREEN}200 OK${RESET}, speed ... "
-        SPEED=$(curl -s -L --max-time 3 --output /dev/null --write-out '%{speed_download}' "$TEST_URL")
-        if [[ "$SPEED" =~ ^[0-9]+$ || "$SPEED" =~ ^[0-9]+\.[0-9]+$ ]]; then
-          SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
-          echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
-          echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
-        else
-          echo -e "${RED}Speed Test Failed${RESET}"
-        fi
-      else
-        echo -e "${RED}❌ No HTTP 200${RESET}"
-      fi
+    TEST_URL="${MIRROR}$(printf "$TEST_PATH_TEMPLATE" "$UBUNTU_CODENAME")"
+    echo -ne "${YELLOW}⏳ Testing $MIRROR ... ${RESET}"
+    SPEED=$(curl -s -L --max-time 5 --output /dev/null --write-out '%{speed_download}' "$TEST_URL")
+    if [[ "$SPEED" =~ ^[0-9]+$ || "$SPEED" =~ ^[0-9]+\.[0-9]+$ ]]; then
+      SPEEDKB=$(awk "BEGIN {printf \"%.2f\", $SPEED/1024}")
+      echo -e "${CYAN}Speed: $SPEEDKB KB/s${RESET}"
+      echo -e "$SPEED\t$MIRROR" >> "$TMPDIR/speed.txt"
     else
-      echo -e "${RED}❌ No ping${RESET}"
+      echo -e "${RED}Failed${RESET}"
     fi
   done
 
