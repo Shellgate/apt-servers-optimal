@@ -16,7 +16,7 @@ APT_ROOT="/etc/apt"
 SOURCES_FILE="$APT_ROOT/sources.list"
 BACKUP_DIR_PREFIX="${APT_ROOT}/sources-cleanup-backup-"
 TMPDIR="/tmp/miro_mirrors_$$"
-TOP_N=4
+TOP_N=3
 TEST_PATH_TEMPLATE="dists/%s/Release"
 
 MIRRORS=(
