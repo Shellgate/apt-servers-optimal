@@ -1,4 +1,5 @@
-```markdown
+# miro
+
 <div align="center">
 
 ![Image](https://github.com/user-attachments/assets/098610cf-0a2b-4b0e-8283-974a858406a0)
@@ -33,8 +34,6 @@ It tests all known (Iranian & worldwide) Ubuntu mirrors for speed and availabili
 - **Run by name or number – no need to type `miro` again**
 - **Professional ASCII logo and status messages**
 - **Multilingual: Persian and English in the same script and documentation**
-- **Full repair and troubleshooting menu**
-- **Full uninstall and revert-to-default option**
 
 ---
 
@@ -65,9 +64,7 @@ Or run a specific action directly:
 | `sudo miro 1`      | Optimize and select fastest mirrors     |
 | `sudo miro 2`      | Restore last backup                     |
 | `sudo miro 3`      | Show backup list/info                   |
-| `sudo miro 4`      | Repair & Troubleshoot                   |
-| `sudo miro 5`      | Full Uninstall & revert to Ubuntu default|
-| `sudo miro 6`      | Exit                                    |
+| `sudo miro 4`      | Exit                                    |
 
 ---
 
@@ -85,11 +82,9 @@ APT Servers Optimal by Shellgate
 1) Optimize Ubuntu mirrors (recommended)
 2) Restore last backup
 3) Show backup info
-4) Repair & Troubleshoot
-5) Full Uninstall & revert to Ubuntu default
-6) Exit
+4) Exit
 =======================================
-Select an option [1/2/3/4/5/6]:
+Select an option [1/2/3/4]:
 ```
 
 ---
@@ -102,8 +97,6 @@ Select an option [1/2/3/4/5/6]:
 - Writes a clean, duplicate-free, safe `/etc/apt/sources.list`.
 - Only refreshes (never deletes) APT keys.
 - Keeps all backups for easy restore at any time.
-- Can repair or restore broken sources.
-- Can uninstall all changes and revert to Ubuntu defaults.
 
 ---
 
@@ -112,7 +105,7 @@ Select an option [1/2/3/4/5/6]:
 - **Always run as root (`sudo`).**
 - Backups are stored in `/etc/apt/` (as `sources-cleanup-backup-*`). You can delete old backups if needed.
 - If the network is down or all mirrors fail, nothing is changed and you can always restore a backup.
-- Works on all Ubuntu flavors and derivatives.
+- Works on all Ubuntu flavors and derivates.
 
 ---
 
@@ -159,8 +152,6 @@ Always have the fastest, healthiest Ubuntu mirrors — painlessly! 🚀
 - **اجرا با نام فایل یا با دستور miro**
 - **لوگوی حرفه‌ای و پیام‌های وضعیت رنگی**
 - **فارسی و انگلیسی در یک اسکریپت و مستندات**
-- **منوی بازسازی و رفع اشکال**
-- **حذف کامل و بازگردانی به حالت اولیه اوبونتو**
 
 ---
 
@@ -195,9 +186,7 @@ sudo miro
 | `sudo miro 1`       | بهینه‌سازی و انتخاب سریع‌ترین میرورها  |
 | `sudo miro 2`       | بازگردانی آخرین بکاپ                   |
 | `sudo miro 3`       | نمایش لیست و اطلاعات بکاپ‌ها            |
-| `sudo miro 4`       | بازسازی و رفع اشکال                     |
-| `sudo miro 5`       | حذف کامل و بازگردانی به تنظیمات اولیه  |
-| `sudo miro 6`       | خروج                                    |
+| `sudo miro 4`       | خروج                                    |
 
 ---
 
@@ -215,11 +204,9 @@ APT Servers Optimal by Shellgate
 1) بهینه‌سازی و انتخاب سریع‌ترین میرورها
 2) بازگردانی آخرین بکاپ
 3) نمایش اطلاعات بکاپ‌ها
-4) بازسازی و رفع اشکال
-5) حذف کامل و بازگردانی تنظیمات اولیه
-6) خروج
+4) خروج
 =======================================
-یک گزینه را وارد کنید [1/2/3/4/5/6]:
+یک گزینه را وارد کنید [1/2/3/4]:
 ```
 
 ---
@@ -232,8 +219,6 @@ APT Servers Optimal by Shellgate
 - یک فایل sources.list تمیز و بدون تکرار می‌سازد و جایگزین می‌کند.
 - کلیدهای APT فقط به‌روز می‌شوند و حذف نمی‌شوند.
 - بکاپ‌ها همیشه قابل بازگردانی هستند.
-- امکان بازسازی یا ترمیم خودکار وجود دارد.
-- امکان حذف کامل و بازگردانی به حالت اولیه اوبونتو وجود دارد.
 
 ---
 
@@ -263,4 +248,3 @@ MIT License
 <div align="center">
 با خیال راحت، همیشه سریع‌ترین و سالم‌ترین مخازن اوبونتو را داشته باشید! 🚀
 </div>
-```
