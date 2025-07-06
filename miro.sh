@@ -225,6 +225,30 @@ show_backups() {
   done
 }
 
+uninstall_project() {
+  logo
+  echo -e "${RED}${BOLD}⚠️  This will completely remove all miro backups and the script itself!${RESET}"
+  read -p "$(echo -e "${YELLOW}Are you sure you want to uninstall everything? (y/N): ${RESET}")" confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "${CYAN}Uninstall cancelled.${RESET}"
+    return
+  fi
+
+  echo -e "${MAGENTA}🧹 Removing all miro backups...${RESET}"
+  sudo rm -rf /etc/apt/sources-cleanup-backup-* 2>/dev/null || true
+  sudo rm -f /etc/apt/sources.list.bak-* 2>/dev/null || true
+
+  echo -e "${MAGENTA}🧹 Removing miro script from /usr/local/bin (if exists)...${RESET}"
+  sudo rm -f /usr/local/bin/miro 2>/dev/null || true
+
+  echo -e "${MAGENTA}🧹 Removing current script (miro.sh)...${RESET}"
+  SCRIPT_PATH="$(realpath "$0")"
+  rm -f "$SCRIPT_PATH" 2>/dev/null || true
+
+  echo -e "${GREEN}${BOLD}✅ miro and all backups have been removed from this system.${RESET}"
+  exit 0
+}
+
 main_menu() {
   while true; do
     clear
@@ -233,15 +257,17 @@ main_menu() {
     echo -e "${CYAN}1)${RESET} ${GREEN}Optimize Ubuntu mirrors (recommended)${RESET}"
     echo -e "${CYAN}2)${RESET} ${YELLOW}Restore last backup${RESET}"
     echo -e "${CYAN}3)${RESET} ${MAGENTA}Show backup info${RESET}"
-    echo -e "${CYAN}4)${RESET} ${RED}Exit${RESET}"
+    echo -e "${CYAN}4)${RESET} ${RED}Uninstall miro & all backups${RESET}"
+    echo -e "${CYAN}5)${RESET} ${RED}Exit${RESET}"
     echo -e "${BOLD}${BLUE}=======================================${RESET}"
-    read -p "$(echo -e "${BOLD}Select an option [1/2/3/4]: ${RESET}")" choice
+    read -p "$(echo -e "${BOLD}Select an option [1/2/3/4/5]: ${RESET}")" choice
 
     case "$choice" in
       1) optimize_sources; read -p "$(echo -e "${YELLOW}Press enter to return to menu...${RESET}")" ;;
       2) restore_backup;  read -p "$(echo -e "${YELLOW}Press enter to return to menu...${RESET}")" ;;
       3) show_backups;   read -p "$(echo -e "${YELLOW}Press enter to return to menu...${RESET}")" ;;
-      4) echo -e "${BOLD}${GREEN}Goodbye!${RESET}"; exit 0 ;;
+      4) uninstall_project ;;
+      5) echo -e "${BOLD}${GREEN}Goodbye!${RESET}"; exit 0 ;;
       *) echo -e "${RED}Invalid option! Try again.${RESET}"; sleep 1 ;;
     esac
   done
@@ -252,8 +278,13 @@ if [ "$#" -gt 0 ]; then
     1) optimize_sources ;;
     2) restore_backup ;;
     3) show_backups ;;
-    4) echo -e "${BOLD}${GREEN}Goodbye!${RESET}"; exit 0 ;;
-    *) echo -e "${RED}Usage: $0 [1|2|3|4]${RESET}"; exit 1 ;;
+    4) uninstall_project ;;
+    5) echo -e "${BOLD}${GREEN}Goodbye!${RESET}"; exit 0 ;;
+    uninstall|remove|uninstall-all)
+      uninstall_project
+      ;;
+    *)
+      echo -e "${RED}Usage: $0 [1|2|3|4|5|uninstall]${RESET}"; exit 1 ;;
   esac
 else
   main_menu
